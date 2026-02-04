@@ -7,6 +7,7 @@
 1. Download the appropriate Realtek ethernet driver from the [official Realtek downloads page](https://www.realtek.com/Download/List?cate_id=584)
 2. Copy the driver to a USB drive
 3. Install the driver on the target machine
+     - This is done by running the autorun.sh script
 
 ### DOCA and MST Installation on Ubuntu Host
 
