@@ -12,6 +12,8 @@
 
 ## DOCA and MST Installation on Ubuntu Host
 
+> **Machine:** All host machines (Laka, Hina, and Milu)
+
 1. Follow the [official DOCA host installation guide](https://docs.nvidia.com/doca/sdk/doca-host+installation+and+upgrade/index.html)
 2. Download the correct DOCA package for the host using the following settings:
    - **Deployment Platform:** Host-Server
@@ -27,6 +29,8 @@
 
 ## BlueField DPU Firmware Installation
 
+> **Machine:** All host machines (Laka, Hina, and Milu)
+
 1. Follow the [BlueField Bundle Installation Guide](https://docs.nvidia.com/doca/sdk/bf-bundle-installation-and-upgrade/index.html)
 2. Download the correct BlueField installation package using the following settings:
    - **Deployment Platform:** BlueField
@@ -39,6 +43,8 @@
    - **Note:** The ISO file is not required
 
 ### Troubleshooting: rshim Not Found
+
+> **Machine:** All host machines (Laka, Hina, and Milu)
 
 If the `rshim` device is not detected during installation, start and enable the rshim service manually:
 
@@ -71,9 +77,13 @@ sudo bfb-install --rshim rshim1 --bfb <path-to-your.bfb>
 
 ## MST Systemd Service Configuration
 
-MST (Mellanox Software Tools) does not start automatically on reboot. Without MST running, you will not be able to manage or communicate with the DPU from the host. You need to create a systemd service on **both host machines** to ensure MST starts on boot.
+> **Machine:** All host machines (Laka, Hina, and Milu)
+
+MST (Mellanox Software Tools) does not start automatically on reboot. Without MST running, you will not be able to manage or communicate with the DPU from the host. You need to create a systemd service on **all host machines** to ensure MST starts on boot.
 
 ### Step 1: Verify the MST Binary Path
+
+> **Machine:** All host machines (Laka, Hina, and Milu)
 
 Before creating the service, confirm where the MST binary is installed:
 
@@ -84,6 +94,8 @@ which mst
 This will return the full path to the binary. It is typically located at `/usr/bin/mst`. If your path differs, update the `ExecStart`, `ExecStop`, and `ExecRestart` lines in the service file below accordingly.
 
 ### Step 2: Create the Service File
+
+> **Machine:** All host machines (Laka, Hina, and Milu)
 
 Create the systemd service file at `/etc/systemd/system/mst.service`:
 
@@ -119,6 +131,8 @@ WantedBy=multi-user.target
 
 ### Step 3: Enable and Start the Service
 
+> **Machine:** All host machines (Laka, Hina, and Milu)
+
 After saving the file, reload systemd and enable the service so it starts automatically on every boot:
 
 ```bash
@@ -133,20 +147,22 @@ Verify the service is running correctly:
 sudo systemctl status mst.service
 ```
 
-> **Reminder:** Repeat these steps on **both host machines**.
+> **Reminder:** Repeat these steps on **all host machines**.
 
 ---
 
 ## Disabling Open vSwitch
 
-Open vSwitch can create bridge interfaces that interfere with proper communication between compute nodes. Disable it on both hosts to avoid connectivity issues:
+> **Machine:** All host machines (Laka, Hina, and Milu)
+
+Open vSwitch can create bridge interfaces that interfere with proper communication between compute nodes. Disable it on all hosts to avoid connectivity issues:
 
 ```bash
 sudo systemctl stop openvswitch-switch
 sudo systemctl disable openvswitch-switch
 ```
 
-> **Note:** This must be done on **both hosts**.
+> **Note:** This must be done on **all hosts**.
 
 ---
 
@@ -168,6 +184,16 @@ sudo systemctl disable openvswitch-switch
 - IP Address: `10.37.11.92/24`
 - DNS: `10.32.4.38, 10.32.4.39`
 
+### Milu Machine
+
+**Hostname:** `milu.medianet.cs.kent.edu`
+
+> **Note:** Milu hosts multiple DPUs. Refer to the Multi-DPU sections throughout this document for rshim numbering, tmfifo interface naming, and subnet assignments when working with Milu.
+
+**Ethernet Interface:**
+- IP Address: TBD
+- DNS: TBD
+
 ### Host-to-DPU Communication IP Addressing
 
 All Host-to-DPU communication uses the `192.168.100.x` subnet.
@@ -186,6 +212,10 @@ All Host-to-DPU communication uses the `192.168.100.x` subnet.
 - **Hina DPU P1 (DPU-to-DPU):** `192.168.5.12`
 - **Hina DPU P0:** `192.168.6.12`
 
+#### Milu IP Assignments
+
+> **Note:** Milu has multiple DPUs. Each DPU will have its own set of interfaces and IP assignments. These will be documented once IP ranges are finalized.
+
 ---
 
 ## DPU Configuration
@@ -195,6 +225,8 @@ All Host-to-DPU communication uses the `192.168.100.x` subnet.
 The DPU exposes a virtual network device on the host called `tmfifo_net0` (or similar) that allows you to SSH directly into the DPU's ARM-based operating system for initial configuration.
 
 #### Step 1: Find the tmfifo_net Interface Name
+
+> **Machine:** Host machine (Laka, Hina, or Milu)
 
 The interface name may vary between machines and kernel versions. To find it, run:
 
@@ -220,6 +252,8 @@ Make note of the correct interface name before proceeding.
 
 #### Step 2: Assign an IP to the tmfifo_net Interface
 
+> **Machine:** Host machine (Laka, Hina, or Milu)
+
 Replace `tmfifo_net0` with the correct interface name for your DPU if it differs:
 
 ```bash
@@ -232,6 +266,8 @@ sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
 
 #### Step 3: SSH into the DPU
 
+> **Machine:** Host machine (Laka, Hina, or Milu) — this command connects you to the DPU
+
 ```bash
 ssh ubuntu@192.168.100.2
 ```
@@ -242,6 +278,8 @@ ssh ubuntu@192.168.100.2
 
 #### Step 4: Flush the tmfifo_net Interface When Done
 
+> **Machine:** Host machine (Laka, Hina, or Milu)
+
 After you have finished configuring the DPU, flush the IP from the tmfifo interface, as it will interfere with the persistent IP addressing configured via netplan:
 
 ```bash
@@ -251,6 +289,8 @@ sudo ip addr flush dev tmfifo_net0
 ---
 
 ### Enabling IPv4 Routing on DPUs
+
+> **Machine:** DPU (via SSH from the host) — applies to all DPUs across Laka, Hina, and Milu
 
 Enable IP forwarding on both DPUs:
 
@@ -273,6 +313,8 @@ net.ipv4.ip_forward=1
 > **Note 2:** You may need to run `sudo chmod 600 <name_of_configuration_file>` to suppress permission warning messages.
 
 ### Hina Host Configuration
+
+> **Machine:** Hina host machine
 
 **File:** `/etc/netplan/01-network-manager-all.yaml`
 
@@ -301,6 +343,8 @@ network:
 
 ### Hina DPU Configuration
 
+> **Machine:** Hina DPU (via SSH from Hina host)
+
 **File:** `/etc/netplan/99-netcfg.yaml`
 
 ```yaml
@@ -323,6 +367,8 @@ network:
 ```
 
 ### Laka Host Configuration
+
+> **Machine:** Laka host machine
 
 **File:** `/etc/netplan/01-network-manager-all.yaml`
 
@@ -351,6 +397,8 @@ network:
 
 ### Laka DPU Configuration
 
+> **Machine:** Laka DPU (via SSH from Laka host)
+
 **File:** `/etc/netplan/99-netcfg.yaml`
 
 ```yaml
@@ -374,10 +422,18 @@ network:
         - 192.168.6.11/24
 ```
 
----
+### Milu Host Configuration
 
-## Additional Resources
+> **Machine:** Milu host machine
 
-- [NVIDIA BlueField DPU Host-Side Interface Configuration](https://docs.nvidia.com/networking/display/bluefielldpuosv452/host-side%2Binterface%2Bconfiguration)
-- [NVIDIA DOCA SDK Documentation](https://docs.nvidia.com/doca/)
-- [NVIDIA Developer Portal](https://developer.nvidia.com/)
+**File:** `/etc/netplan/01-network-manager-all.yaml`
+
+> **Note:** Configuration to be added once IP ranges are finalized.
+
+### Milu DPU Configurations
+
+> **Machine:** Milu DPUs (via SSH from Milu host)
+
+**File:** `/etc/netplan/99-netcfg.yaml`
+
+> **Note:** Milu has multiple DPUs. Each DPU will require its own netplan configuration. These will be documented once IP ranges are finalized. Refer to the Multi-DPU sections for interface
