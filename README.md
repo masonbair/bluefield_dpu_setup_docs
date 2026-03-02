@@ -14,7 +14,7 @@
 
 > **Machine:** All host machines (Laka, Hina, and Milu)
 
-1. Follow the [official DOCA host installation guide](https://docs.nvidia.com/doca/sdk/doca-host+installation+and+upgrade/index.html)
+1. Follow the [official DOCA host installation guide](https://docs.nvidia.com/doca/sdk/DOCA-Host-Installation-and-Upgrade/index.html)
 2. Download the correct DOCA package for the host using the following settings:
    - **Deployment Platform:** Host-Server
    - **Deployment Package:** DOCA-Host
@@ -31,7 +31,7 @@
 
 > **Machine:** All host machines (Laka, Hina, and Milu)
 
-1. Follow the [BlueField Bundle Installation Guide](https://docs.nvidia.com/doca/sdk/bf-bundle-installation-and-upgrade/index.html)
+1. Follow the [BlueField Bundle Installation Guide](https://docs.nvidia.com/doca/sdk/BF-Bundle-Installation-and-Upgrade/index.html)
 2. Download the correct BlueField installation package using the following settings:
    - **Deployment Platform:** BlueField
    - **Deployment Package:** BF-Bundle
@@ -598,6 +598,6 @@ network:
 
 ## Additional Resources
 
-- [NVIDIA BlueField DPU Host-Side Interface Configuration](https://docs.nvidia.com/networking/display/bluefielldpuosv452/host-side%2Binterface%2Bconfiguration)
-- [NVIDIA DOCA SDK Documentation](https://docs.nvidia.com/doca/)
+- [NVIDIA BlueField DPU Host-Side Interface Configuration](https://docs.nvidia.com/networking/display/bluefieldbsp4140/Host-side-Interface-Configuration)
+- [NVIDIA DOCA SDK Documentation](https://docs.nvidia.com/doca/sdk/index.html)
 - [NVIDIA Developer Portal](https://developer.nvidia.com/)
