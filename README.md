@@ -190,31 +190,45 @@ sudo systemctl disable openvswitch-switch
 
 > **Note:** Milu hosts multiple DPUs. Refer to the Multi-DPU sections throughout this document for rshim numbering, tmfifo interface naming, and subnet assignments when working with Milu.
 
-**Ethernet Interface:**
-- IP Address: TBD
-- DNS: TBD
+**Ethernet Interface (enp7s0):**
+- IP Address: `10.37.11.90/24`
+- DNS: `10.32.4.38, 10.32.4.39`
+
+---
 
 ### Host-to-DPU Communication IP Addressing
 
-All Host-to-DPU communication uses the `192.168.100.x` subnet.
+Hina and Milu DPU1 share the `192.168.10.0/28` subnet. Laka and Milu DPU2 share the `192.168.20.0/28` subnet. Milu sits in the middle of both, acting as the bridge between the two sides.
 
 > **Recommended:** Use the netplan configuration files in the Reference section below for automatic IP address and routing setup.
 
-#### Laka IP Assignments
-- **Laka Host (enp1s0f1np1):** `192.168.100.10`
-- **Laka PCIe (Host-to-DPU):** `192.168.100.11`
-- **Laka DPU P1 (DPU-to-DPU):** `192.168.5.11`
-- **Laka DPU P0:** `192.168.6.11`
-
 #### Hina IP Assignments
-- **Hina Host (enp1s0f1np1):** `192.168.100.20`
-- **Hina PCIe (Host-to-DPU):** `192.168.100.12`
-- **Hina DPU P1 (DPU-to-DPU):** `192.168.5.12`
-- **Hina DPU P0:** `192.168.6.12`
+- **Hina Host:** `192.168.10.7/28`
+- **Hina PCIe (Host-to-DPU):** `192.168.10.6`
+- **Hina DPU P0 (DPU-to-DPU):** `192.168.10.4`
+- **Hina DPU P1 (DPU-to-DPU):** `192.168.10.5`
+
+#### Laka IP Assignments
+- **Laka Host:** `192.168.20.7/28`
+- **Laka PCIe (Host-to-DPU):** `192.168.20.6`
+- **Laka DPU P0 (DPU-to-DPU):** `192.168.20.4`
+- **Laka DPU P1 (DPU-to-DPU):** `192.168.20.5`
 
 #### Milu IP Assignments
 
-> **Note:** Milu has multiple DPUs. Each DPU will have its own set of interfaces and IP assignments. These will be documented once IP ranges are finalized.
+Milu has two host interfaces, one per DPU, each on a separate subnet:
+
+**DPU 1 — subnet `192.168.10.0/28` (shared with Hina)**
+- **Milu Host Interface (enp2):** `192.168.10.0/28`
+- **Milu PCIe 1 (Host-to-DPU):** `192.168.10.1`
+- **Milu DPU 1 P0 (DPU-to-DPU):** `192.168.10.2`
+- **Milu DPU 1 P1 (DPU-to-DPU):** `192.168.10.3`
+
+**DPU 2 — subnet `192.168.20.0/28` (shared with Laka)**
+- **Milu Host Interface (enp255):** `192.168.20.0/28`
+- **Milu PCIe 2 (Host-to-DPU):** `192.168.20.1`
+- **Milu DPU 2 P0 (DPU-to-DPU):** `192.168.20.2`
+- **Milu DPU 2 P1 (DPU-to-DPU):** `192.168.20.3`
 
 ---
 
@@ -288,11 +302,13 @@ sudo ip addr flush dev tmfifo_net0
 
 ---
 
-### Enabling IPv4 Routing on DPUs
+### Enabling IPv4 Routing on DPUs and Hosts
 
-> **Machine:** DPU (via SSH from the host) — applies to all DPUs across Laka, Hina, and Milu
+> **Machine:** All DPUs (via SSH) and Milu host machine
 
-Enable IP forwarding on both DPUs:
+IP forwarding must be enabled on all DPUs as well as the Milu host. The DPUs need it to forward packets between their interfaces, and Milu needs it specifically because it acts as the bridge between the two subnets — without it, packets arriving on `enp2` destined for the `192.168.20.0/28` subnet will never be forwarded out through `enp255`, and vice versa.
+
+Enable IP forwarding immediately:
 
 ```bash
 sudo sysctl -w net.ipv4.ip_forward=1
@@ -304,6 +320,8 @@ To make this persistent across reboots, add the following line to `/etc/sysctl.c
 net.ipv4.ip_forward=1
 ```
 
+> **Note:** This must be run on all DPUs (Hina DPU, Laka DPU, Milu DPU1, Milu DPU2) and on the Milu host machine itself.
+
 ---
 
 ## Reference: Netplan Configuration Files
@@ -312,6 +330,14 @@ net.ipv4.ip_forward=1
 
 > **Note 2:** You may need to run `sudo chmod 600 <name_of_configuration_file>` to suppress permission warning messages.
 
+> **Note 3: Bidirectional Routing** — The routes configured below support traffic in both directions. Hina can reach Laka and Laka can reach Hina. The full paths are:
+>
+> **Hina → Laka:**
+> `Hina Host → Hina DPU → Milu DPU1 → Milu Host → Milu DPU2 → Laka DPU → Laka Host`
+>
+> **Laka → Hina:**
+> `Laka Host → Laka DPU → Milu DPU2 → Milu Host → Milu DPU1 → Hina DPU → Hina Host`
+
 ### Hina Host Configuration
 
 > **Machine:** Hina host machine
@@ -319,7 +345,6 @@ net.ipv4.ip_forward=1
 **File:** `/etc/netplan/01-network-manager-all.yaml`
 
 ```yaml
-# Let NetworkManager manage all devices on this system
 network:
   version: 2
   renderer: NetworkManager
@@ -332,13 +357,16 @@ network:
         - to: default
           via: 10.37.11.1
       nameservers:
-        addresses: [10.32.4.28, 10.32.4.39]
+        addresses: [10.32.4.38, 10.32.4.39]
     enp1s0f1np1:
       addresses:
-        - 192.168.100.20/24
+        - 192.168.10.7/28
       routes:
-        - to: 192.168.100.10/32
-          via: 192.168.100.12
+        # Route to local DPU subnet and onward to the 192.168.20.0/28 (Laka) subnet via Hina DPU
+        - to: 192.168.10.0/28
+          via: 192.168.10.6
+        - to: 192.168.20.0/28
+          via: 192.168.10.6
 ```
 
 ### Hina DPU Configuration
@@ -354,16 +382,28 @@ network:
   ethernets:
     pf1hpf:
       addresses:
-        - 192.168.100.12/24
-    p1:
-      addresses:
-        - 192.168.5.12/24
+        - 192.168.10.6/28
       routes:
-        - to: 192.168.100.10/32
-          via: 192.168.5.11
+        # Return route back to Hina host
+        - to: 192.168.10.7/32
+          via: 192.168.10.6
     p0:
       addresses:
-        - 192.168.6.12/24
+        - 192.168.10.4/28
+      routes:
+        # Forward traffic toward Milu DPU1 and onward to the 192.168.20.0/28 (Laka) subnet
+        - to: 192.168.10.0/28
+          via: 192.168.10.2
+        - to: 192.168.20.0/28
+          via: 192.168.10.2
+    p1:
+      addresses:
+        - 192.168.10.5/28
+      routes:
+        - to: 192.168.10.0/28
+          via: 192.168.10.3
+        - to: 192.168.20.0/28
+          via: 192.168.10.3
 ```
 
 ### Laka Host Configuration
@@ -373,7 +413,6 @@ network:
 **File:** `/etc/netplan/01-network-manager-all.yaml`
 
 ```yaml
-# Let NetworkManager manage all devices on this system
 network:
   version: 2
   renderer: NetworkManager
@@ -389,10 +428,13 @@ network:
         addresses: [10.32.4.38, 10.32.4.39]
     enp1s0f1np1:
       addresses:
-        - 192.168.100.10/24
+        - 192.168.20.7/28
       routes:
-        - to: 192.168.100.20/32
-          via: 192.168.100.11
+        # Route to local DPU subnet and onward to the 192.168.10.0/28 (Hina) subnet via Laka DPU
+        - to: 192.168.20.0/28
+          via: 192.168.20.6
+        - to: 192.168.10.0/28
+          via: 192.168.20.6
 ```
 
 ### Laka DPU Configuration
@@ -408,18 +450,30 @@ network:
   ethernets:
     pf1hpf:
       addresses:
-        - 192.168.100.11/24
-    p1:
-      optional: true
-      addresses:
-        - 192.168.5.11/24
+        - 192.168.20.6/28
       routes:
-        - to: 192.168.100.20/32
-          via: 192.168.5.12
+        # Return route back to Laka host
+        - to: 192.168.20.7/32
+          via: 192.168.20.6
     p0:
       optional: true
       addresses:
-        - 192.168.6.11/24
+        - 192.168.20.4/28
+      routes:
+        # Forward traffic toward Milu DPU2 and onward to the 192.168.10.0/28 (Hina) subnet
+        - to: 192.168.20.0/28
+          via: 192.168.20.2
+        - to: 192.168.10.0/28
+          via: 192.168.20.2
+    p1:
+      optional: true
+      addresses:
+        - 192.168.20.5/28
+      routes:
+        - to: 192.168.20.0/28
+          via: 192.168.20.3
+        - to: 192.168.10.0/28
+          via: 192.168.20.3
 ```
 
 ### Milu Host Configuration
@@ -428,12 +482,122 @@ network:
 
 **File:** `/etc/netplan/01-network-manager-all.yaml`
 
-> **Note:** Configuration to be added once IP ranges are finalized.
+```yaml
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    enp7s0:
+      dhcp4: no
+      addresses:
+        - 10.37.11.90/24
+      routes:
+        - to: default
+          via: 10.37.11.1
+      nameservers:
+        addresses: [10.32.4.38, 10.32.4.39]
+    enp2:
+      addresses:
+        - 192.168.10.0/28
+      routes:
+        # Reach Hina subnet via DPU1 and cross to 192.168.20.0/28 (Laka) via enp255
+        - to: 192.168.10.0/28
+          via: 192.168.10.1
+        - to: 192.168.20.0/28
+          via: 192.168.20.1
+    enp255:
+      addresses:
+        - 192.168.20.0/28
+      routes:
+        # Reach Laka subnet via DPU2 and cross to 192.168.10.0/28 (Hina) via enp2
+        - to: 192.168.20.0/28
+          via: 192.168.20.1
+        - to: 192.168.10.0/28
+          via: 192.168.10.1
+```
 
-### Milu DPU Configurations
+### Milu DPU 1 Configuration
 
-> **Machine:** Milu DPUs (via SSH from Milu host)
+> **Machine:** Milu DPU 1 (via SSH from Milu host using tmfifo_net0)
 
 **File:** `/etc/netplan/99-netcfg.yaml`
 
-> **Note:** Milu has multiple DPUs. Each DPU will require its own netplan configuration. These will be documented once IP ranges are finalized. Refer to the Multi-DPU sections for interface
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    pf1hpf:
+      addresses:
+        - 192.168.10.1/28
+      routes:
+        # Forward traffic from Hina side to Milu host, which bridges to DPU2 and onward to Laka
+        - to: 192.168.20.0/28
+          via: 192.168.10.1
+    p0:
+      optional: true
+      addresses:
+        - 192.168.10.2/28
+      routes:
+        # Route back toward Hina DPU and Hina host
+        - to: 192.168.10.4/32
+          via: 192.168.10.4
+        - to: 192.168.10.7/32
+          via: 192.168.10.4
+    p1:
+      optional: true
+      addresses:
+        - 192.168.10.3/28
+      routes:
+        - to: 192.168.10.5/32
+          via: 192.168.10.5
+        - to: 192.168.10.7/32
+          via: 192.168.10.5
+```
+
+### Milu DPU 2 Configuration
+
+> **Machine:** Milu DPU 2 (via SSH from Milu host using tmfifo_net1)
+
+**File:** `/etc/netplan/99-netcfg.yaml`
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    pf1hpf:
+      addresses:
+        - 192.168.20.1/28
+      routes:
+        # Forward traffic from Laka side to Milu host, which bridges to DPU1 and onward to Hina
+        - to: 192.168.10.0/28
+          via: 192.168.20.1
+    p0:
+      optional: true
+      addresses:
+        - 192.168.20.2/28
+      routes:
+        # Route back toward Laka DPU and Laka host
+        - to: 192.168.20.4/32
+          via: 192.168.20.4
+        - to: 192.168.20.7/32
+          via: 192.168.20.4
+    p1:
+      optional: true
+      addresses:
+        - 192.168.20.5/28
+      routes:
+        - to: 192.168.20.5/32
+          via: 192.168.20.5
+        - to: 192.168.20.7/32
+          via: 192.168.20.5
+```
+
+---
+
+## Additional Resources
+
+- [NVIDIA BlueField DPU Host-Side Interface Configuration](https://docs.nvidia.com/networking/display/bluefielldpuosv452/host-side%2Binterface%2Bconfiguration)
+- [NVIDIA DOCA SDK Documentation](https://docs.nvidia.com/doca/)
+- [NVIDIA Developer Portal](https://developer.nvidia.com/)
