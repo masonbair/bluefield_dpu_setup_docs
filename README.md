@@ -38,7 +38,7 @@
    - **Distribution:** Ubuntu 24.04_64k
    - **Installer Type:** BFB
    - [Direct download link](https://developer.nvidia.com/doca-downloads?deployment_platform=BlueField&deployment_package=BF-Bundle&Distribution=Ubuntu&version=24.04_64k&installer_type=BFB)
-3. Install the `.bfb` file onto the BlueField DPU:
+3. Install the `.bfb` file onto each BlueField DPU:
    - Choose **"No pre-defined password"** option unless you want to set a specific password
    - **Note:** The ISO file is not required
 
