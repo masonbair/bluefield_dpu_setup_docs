@@ -238,6 +238,8 @@ Milu has two host interfaces, one per DPU, each on a separate subnet:
 
 The DPU exposes a virtual network device on the host called `tmfifo_net0` (or similar) that allows you to SSH directly into the DPU's ARM-based operating system for initial configuration.
 
+> **Important:** The `192.168.100.1/30` address assigned to the host's tmfifo interface and the corresponding `192.168.100.2` address on the DPU side are **temporary addresses used exclusively for SSH access during initial DPU configuration.** These addresses must be flushed after configuration is complete, as they will conflict with the persistent IP addressing configured via netplan.
+
 #### Step 1: Find the tmfifo_net Interface Name
 
 > **Machine:** Host machine (Laka, Hina, or Milu)
@@ -274,9 +276,7 @@ Replace `tmfifo_net0` with the correct interface name for your DPU if it differs
 sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
 ```
 
-> **Multi-DPU Note:** Each tmfifo interface needs a **separate, non-overlapping subnet**. For example:
-> - First DPU: `192.168.100.1/30` (DPU reachable at `192.168.100.2`)
-> - Second DPU: `192.168.100.5/30` (DPU reachable at `192.168.100.6`)
+> **Multi-DPU Note:** Each tmfifo interface needs a **separate, non-overlapping subnet**. You must only have one tmfifo interface assigned an IP at a time — see the [Multi-DPU SSH Workflow](#multi-dpu-ssh-workflow) section below before proceeding if you are working with more than one DPU.
 
 #### Step 3: SSH into the DPU
 
@@ -302,45 +302,95 @@ sudo ip addr flush dev tmfifo_net0
 
 ---
 
-### Enabling IPv4 Routing on DPUs and Hosts
+### Multi-DPU SSH Workflow
 
-> **Machine:** All DPUs (via SSH) and Milu host machine
+> **Machine:** Milu host machine (or any host with more than one DPU)
 
-IP forwarding must be enabled on all DPUs as well as the Milu host. The DPUs need it to forward packets between their interfaces, and Milu needs it specifically because it acts as the bridge between the two subnets — without it, packets arriving on `enp2` destined for the `192.168.20.0/28` subnet will never be forwarded out through `enp255`, and vice versa.
+When a host has multiple DPUs, you **cannot** assign the same `192.168.100.1/30` subnet to more than one tmfifo interface at the same time — doing so will cause a routing conflict and SSH will connect to the wrong DPU. You must configure, use, and fully clean up each interface before moving on to the next.
 
-Enable IP forwarding immediately:
+Additionally, because both DPUs will respond at `192.168.100.2` on their respective subnets, SSH will store a host key for that address after your first login. When you switch to the second DPU, SSH will detect a key mismatch and refuse to connect. You must remove the old host key entry before SSHing into the next DPU.
+
+#### Workflow for Each DPU
+
+Repeat the following steps for each DPU, one at a time:
+
+**1. Assign the IP to the tmfifo interface for the target DPU:**
+
+For DPU 1:
+```bash
+sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
+```
+
+For DPU 2:
+```bash
+sudo ip addr add 192.168.100.1/30 dev tmfifo_net1
+```
+
+**2. SSH into the DPU at `192.168.100.2`:**
 
 ```bash
-sudo sysctl -w net.ipv4.ip_forward=1
+ssh ubuntu@192.168.100.2
 ```
 
-To make this persistent across reboots, add the following line to `/etc/sysctl.conf`:
+**3. Perform your configuration on the DPU, then exit the SSH session.**
 
-```
-net.ipv4.ip_forward=1
+**4. Flush the IP address from the tmfifo interface:**
+
+For DPU 1:
+```bash
+sudo ip addr flush dev tmfifo_net0
 ```
 
-> **Note:** This must be run on all DPUs (Hina DPU, Laka DPU, Milu DPU1, Milu DPU2) and on the Milu host machine itself.
+For DPU 2:
+```bash
+sudo ip addr flush dev tmfifo_net1
+```
+
+**5. Remove the stored SSH host key for `192.168.100.2`:**
+
+Because the next DPU will also present itself at `192.168.100.2`, the old host key will cause SSH to refuse the connection with a warning about a potential man-in-the-middle attack. Remove the stale key before proceeding:
+
+```bash
+ssh-keygen -R 192.168.100.2
+```
+
+**6. Repeat from step 1 for the next DPU.**
+
+**Summary of the full sequence for Milu (two DPUs):**
+```bash
+# --- DPU 1 ---
+sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
+ssh ubuntu@192.168.100.2          # configure DPU 1, then exit
+sudo ip addr flush dev tmfifo_net0
+ssh-keygen -R 192.168.100.2
+
+# --- DPU 2 ---
+sudo ip addr add 192.168.100.1/30 dev tmfifo_net1
+ssh ubuntu@192.168.100.2          # configure DPU 2, then exit
+sudo ip addr flush dev tmfifo_net1
+ssh-keygen -R 192.168.100.2
+````
+
 
 ---
 
 ## Reference: Netplan Configuration Files
 
-> **Note 1:** After adding each file to the correct folder, run `sudo netplan apply` to activate the configuration.
+**Note 1:** After adding each file to the correct folder, run `sudo netplan apply` to activate the configuration.
 
-> **Note 2:** You may need to run `sudo chmod 600 <name_of_configuration_file>` to suppress permission warning messages.
+**Note 2:** You may need to run `sudo chmod 600 <name_of_configuration_file>` to suppress permission warning messages.
 
-> **Note 3: Bidirectional Routing** — The routes configured below support traffic in both directions. Hina can reach Laka and Laka can reach Hina. The full paths are:
->
-> **Hina → Laka:**
-> `Hina Host → Hina DPU → Milu DPU1 → Milu Host → Milu DPU2 → Laka DPU → Laka Host`
->
-> **Laka → Hina:**
-> `Laka Host → Laka DPU → Milu DPU2 → Milu Host → Milu DPU1 → Hina DPU → Hina Host`
+**Note 3: Bidirectional Routing** — The routes configured below support traffic in both directions. Hina can reach Laka and Laka can reach Hina. The full paths are:
+
+**Hina → Laka:**
+`Hina Host → Hina DPU → Milu DPU1 → Milu Host → Milu DPU2 → Laka DPU → Laka Host`
+
+**Laka → Hina:**
+`Laka Host → Laka DPU → Milu DPU2 → Milu Host → Milu DPU1 → Hina DPU → Hina Host`
 
 ### Hina Host Configuration
 
-> **Machine:** Hina host machine
+**Machine:** Hina host machine
 
 **File:** `/etc/netplan/01-network-manager-all.yaml`
 
@@ -586,12 +636,12 @@ network:
     p1:
       optional: true
       addresses:
-        - 192.168.20.5/28
+        - 192.168.20.3/28
       routes:
         - to: 192.168.20.5/32
-          via: 192.168.20.5
+          via: 192.168.20.3
         - to: 192.168.20.7/32
-          via: 192.168.20.5
+          via: 192.168.20.3
 ```
 
 ---
