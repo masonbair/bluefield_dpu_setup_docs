@@ -238,67 +238,85 @@ Milu has two host interfaces, one per DPU, each on a separate subnet:
 
 The DPU exposes a virtual network device on the host called `tmfifo_net0` (or similar) that allows you to SSH directly into the DPU's ARM-based operating system for initial configuration.
 
-> **Important:** The `192.168.100.1/30` address assigned to the host's tmfifo interface and the corresponding `192.168.100.2` address on the DPU side are **temporary addresses used exclusively for SSH access during initial DPU configuration.** These addresses must be flushed after configuration is complete, as they will conflict with the persistent IP addressing configured via netplan.
+On systems with **multiple DPUs**, each card is configured with its own unique tmfifo IP address by editing the netplan configuration inside the card via the rshim console. This avoids routing conflicts that would occur if all DPUs shared the same address.
 
-#### Step 1: Find the tmfifo_net Interface Name
-
-> **Machine:** Host machine (Laka, Hina, or Milu)
-
-The interface name may vary between machines and kernel versions. To find it, run:
-
-```bash
-ip link show | grep tmfifo
-```
-
-Or list all network interfaces and look for one matching the `tmfifo_net` pattern:
-
-```bash
-ls /sys/class/net/ | grep tmfifo
-```
-
-On a **single-DPU system**, you will typically see:
-- `tmfifo_net0`
-
-On a **multi-DPU system**, each DPU gets its own tmfifo interface:
-- First DPU: `tmfifo_net0`
-- Second DPU: `tmfifo_net1`
-- And so on...
-
-Make note of the correct interface name before proceeding.
-
-#### Step 2: Assign an IP to the tmfifo_net Interface
+#### Step 1: Open the rshim Console for the Target DPU
 
 > **Machine:** Host machine (Laka, Hina, or Milu)
 
-Replace `tmfifo_net0` with the correct interface name for your DPU if it differs:
+Connect to the DPU's serial console through its rshim device. For DPU 1 (rshim0):
 
 ```bash
-sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
+sudo minicom -D /dev/rshim0/console
 ```
 
-> **Multi-DPU Note:** Each tmfifo interface needs a **separate, non-overlapping subnet**. You must only have one tmfifo interface assigned an IP at a time — see the [Multi-DPU SSH Workflow](#multi-dpu-ssh-workflow) section below before proceeding if you are working with more than one DPU.
+For DPU 2 (rshim1):
+
+```bash
+sudo minicom -D /dev/rshim1/console
+```
+
+Log in with the DPU's credentials when prompted.
+
+#### Step 2: Configure a Unique tmfifo IP on the DPU
+
+> **Machine:** Inside the DPU (via rshim console)
+
+Each DPU must be assigned a unique tmfifo IP so that multiple DPUs can be accessed simultaneously without address conflicts. Edit the cloud-init netplan configuration file on the DPU:
+
+```bash
+sudo nano /etc/netplan/50-cloud-init.yaml
+```
+
+Set the addresses according to which DPU you are configuring:
+
+- **DPU 1 (rshim0):** use `192.168.101.1/30` on `tmfifo_net0`
+- **DPU 2 (rshim1):** use `192.168.102.1/30` on `tmfifo_net1`
+
+**Example configuration for DPU 1:**
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    tmfifo_net0:
+      dhcp4: false
+      addresses:
+        - "192.168.101.1/30"
+    tmfifo_net1:
+      dhcp4: false
+      addresses:
+        - "192.168.102.1/30"
+```
+
+After saving the file, apply the configuration:
+
+```bash
+sudo netplan apply
+```
+
+Repeat this process (Steps 1–2) for each DPU, adjusting the subnet accordingly.
 
 #### Step 3: SSH into the DPU
 
 > **Machine:** Host machine (Laka, Hina, or Milu) — this command connects you to the DPU
 
+Once the tmfifo IP has been configured on the DPU, SSH into it using the corresponding address:
+
+For DPU 1:
 ```bash
-ssh ubuntu@192.168.100.2
+ssh ubuntu@192.168.101.2
+```
+
+For DPU 2:
+```bash
+ssh ubuntu@192.168.102.2
 ```
 
 - Default password: `ubuntu`
 - **Note:** Upon first login, you will be forced to set a new password (minimum 12 characters)
 - Current password: Set to the standard research machine password (entered twice during setup)
-
-#### Step 4: Flush the tmfifo_net Interface When Done
-
-> **Machine:** Host machine (Laka, Hina, or Milu)
-
-After you have finished configuring the DPU, flush the IP from the tmfifo interface, as it will interfere with the persistent IP addressing configured via netplan:
-
-```bash
-sudo ip addr flush dev tmfifo_net0
-```
 
 ---
 
@@ -306,70 +324,25 @@ sudo ip addr flush dev tmfifo_net0
 
 > **Machine:** Milu host machine (or any host with more than one DPU)
 
-When a host has multiple DPUs, you **cannot** assign the same `192.168.100.1/30` subnet to more than one tmfifo interface at the same time — doing so will cause a routing conflict and SSH will connect to the wrong DPU. You must configure, use, and fully clean up each interface before moving on to the next.
+Because each DPU has been configured with a unique tmfifo IP (via the rshim console in the steps above), multiple DPUs can be accessed simultaneously without routing conflicts or SSH host key collisions.
 
-Additionally, because both DPUs will respond at `192.168.100.2` on their respective subnets, SSH will store a host key for that address after your first login. When you switch to the second DPU, SSH will detect a key mismatch and refuse to connect. You must remove the old host key entry before SSHing into the next DPU.
+#### Workflow Summary for Milu (two DPUs)
 
-#### Workflow for Each DPU
+**1. Configure a unique IP on each DPU via the rshim console** (see Steps 1–2 above). This only needs to be done once per card.
 
-Repeat the following steps for each DPU, one at a time:
-
-**1. Assign the IP to the tmfifo interface for the target DPU:**
+**2. SSH into each DPU directly using its dedicated address:**
 
 For DPU 1:
 ```bash
-sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
+ssh ubuntu@192.168.101.2
 ```
 
 For DPU 2:
 ```bash
-sudo ip addr add 192.168.100.1/30 dev tmfifo_net1
+ssh ubuntu@192.168.102.2
 ```
 
-**2. SSH into the DPU at `192.168.100.2`:**
-
-```bash
-ssh ubuntu@192.168.100.2
-```
-
-**3. Perform your configuration on the DPU, then exit the SSH session.**
-
-**4. Flush the IP address from the tmfifo interface:**
-
-For DPU 1:
-```bash
-sudo ip addr flush dev tmfifo_net0
-```
-
-For DPU 2:
-```bash
-sudo ip addr flush dev tmfifo_net1
-```
-
-**5. Remove the stored SSH host key for `192.168.100.2`:**
-
-Because the next DPU will also present itself at `192.168.100.2`, the old host key will cause SSH to refuse the connection with a warning about a potential man-in-the-middle attack. Remove the stale key before proceeding:
-
-```bash
-ssh-keygen -R 192.168.100.2
-```
-
-**6. Repeat from step 1 for the next DPU.**
-
-**Summary of the full sequence for Milu (two DPUs):**
-```bash
-# --- DPU 1 ---
-sudo ip addr add 192.168.100.1/30 dev tmfifo_net0
-ssh ubuntu@192.168.100.2          # configure DPU 1, then exit
-sudo ip addr flush dev tmfifo_net0
-ssh-keygen -R 192.168.100.2
-
-# --- DPU 2 ---
-sudo ip addr add 192.168.100.1/30 dev tmfifo_net1
-ssh ubuntu@192.168.100.2          # configure DPU 2, then exit
-sudo ip addr flush dev tmfifo_net1
-ssh-keygen -R 192.168.100.2
-````
+No cleanup or host-key removal steps are required between connections since each DPU has a distinct address.
 
 
 ---
