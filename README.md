@@ -381,13 +381,18 @@ network:
           via: 10.37.11.1
       nameservers:
         addresses: [10.32.4.38, 10.32.4.39]
+
     enp1s0f1np1:
       addresses:
-        - 192.168.10.7/28
+        - 192.168.10.7/32
       routes:
-        # Route to local DPU subnet and onward to the 192.168.20.0/28 (Laka) subnet via Hina DPU
+        # On-link peer: Hina DPU pf1hpf
+        - to: 192.168.10.6/32
+          scope: link
+        # Everything in 192.168.10.0/28 (except .10.6 and .10.7) via DPU
         - to: 192.168.10.0/28
           via: 192.168.10.6
+        # Cross-subnet to Laka side
         - to: 192.168.20.0/28
           via: 192.168.10.6
 ```
@@ -405,25 +410,35 @@ network:
   ethernets:
     pf1hpf:
       addresses:
-        - 192.168.10.6/28
+        - 192.168.10.6/32
       routes:
-        # Return route back to Hina host
         - to: 192.168.10.7/32
-          via: 192.168.10.6
+          scope: link
+
     p0:
       addresses:
-        - 192.168.10.4/28
+        - 192.168.10.4/32
       routes:
-        # Forward traffic toward Milu DPU1 and onward to the 192.168.20.0/28 (Laka) subnet
-        - to: 192.168.10.0/28
+        - to: 192.168.10.2/32
+          scope: link
+        # Reach Milu host + DPU1 pf1hpf via Milu DPU1 p0
+        - to: 192.168.10.0/32
           via: 192.168.10.2
+        - to: 192.168.10.1/32
+          via: 192.168.10.2
+        # Cross-subnet to Laka side
         - to: 192.168.20.0/28
           via: 192.168.10.2
+
     p1:
       addresses:
-        - 192.168.10.5/28
+        - 192.168.10.5/32
       routes:
-        - to: 192.168.10.0/28
+        - to: 192.168.10.3/32
+          scope: link
+        - to: 192.168.10.0/32
+          via: 192.168.10.3
+        - to: 192.168.10.1/32
           via: 192.168.10.3
         - to: 192.168.20.0/28
           via: 192.168.10.3
@@ -449,13 +464,16 @@ network:
           via: 10.37.11.1
       nameservers:
         addresses: [10.32.4.38, 10.32.4.39]
+
     enp1s0f1np1:
       addresses:
-        - 192.168.20.7/28
+        - 192.168.20.7/32
       routes:
-        # Route to local DPU subnet and onward to the 192.168.10.0/28 (Hina) subnet via Laka DPU
+        - to: 192.168.20.6/32
+          scope: link
         - to: 192.168.20.0/28
           via: 192.168.20.6
+        # Cross-subnet to Hina side
         - to: 192.168.10.0/28
           via: 192.168.20.6
 ```
@@ -473,27 +491,35 @@ network:
   ethernets:
     pf1hpf:
       addresses:
-        - 192.168.20.6/28
+        - 192.168.20.6/32
       routes:
-        # Return route back to Laka host
         - to: 192.168.20.7/32
-          via: 192.168.20.6
+          scope: link
+
     p0:
       optional: true
       addresses:
-        - 192.168.20.4/28
+        - 192.168.20.4/32
       routes:
-        # Forward traffic toward Milu DPU2 and onward to the 192.168.10.0/28 (Hina) subnet
-        - to: 192.168.20.0/28
+        - to: 192.168.20.2/32
+          scope: link
+        - to: 192.168.20.0/32
+          via: 192.168.20.2
+        - to: 192.168.20.1/32
           via: 192.168.20.2
         - to: 192.168.10.0/28
           via: 192.168.20.2
+
     p1:
       optional: true
       addresses:
-        - 192.168.20.5/28
+        - 192.168.20.5/32
       routes:
-        - to: 192.168.20.0/28
+        - to: 192.168.20.3/32
+          scope: link
+        - to: 192.168.20.0/32
+          via: 192.168.20.3
+        - to: 192.168.20.1/32
           via: 192.168.20.3
         - to: 192.168.10.0/28
           via: 192.168.20.3
@@ -519,24 +545,26 @@ network:
           via: 10.37.11.1
       nameservers:
         addresses: [10.32.4.38, 10.32.4.39]
+
     enp2:
       addresses:
-        - 192.168.10.0/28
+        - 192.168.10.0/32
       routes:
-        # Reach Hina subnet via DPU1 and cross to 192.168.20.0/28 (Laka) via enp255
+        - to: 192.168.10.1/32
+          scope: link
+        # Everything on the Hina side behind Milu DPU1
         - to: 192.168.10.0/28
           via: 192.168.10.1
-        - to: 192.168.20.0/28
-          via: 192.168.20.1
+
     enp255:
       addresses:
-        - 192.168.20.0/28
+        - 192.168.20.0/32
       routes:
-        # Reach Laka subnet via DPU2 and cross to 192.168.10.0/28 (Hina) via enp2
+        - to: 192.168.20.1/32
+          scope: link
+        # Everything on the Laka side behind Milu DPU2
         - to: 192.168.20.0/28
           via: 192.168.20.1
-        - to: 192.168.10.0/28
-          via: 192.168.10.1
 ```
 
 ### Milu DPU 1 Configuration
@@ -552,27 +580,35 @@ network:
   ethernets:
     pf1hpf:
       addresses:
-        - 192.168.10.1/28
+        - 192.168.10.1/32
       routes:
-        # Forward traffic from Hina side to Milu host, which bridges to DPU2 and onward to Laka
+        - to: 192.168.10.0/32
+          scope: link
+        # Cross-subnet: Laka side is reachable via Milu host
         - to: 192.168.20.0/28
-          via: 192.168.10.1
+          via: 192.168.10.0
+
     p0:
       optional: true
       addresses:
-        - 192.168.10.2/28
+        - 192.168.10.2/32
       routes:
-        # Route back toward Hina DPU and Hina host
         - to: 192.168.10.4/32
+          scope: link
+        # Reach Hina DPU pf1hpf and Hina host via Hina DPU p0
+        - to: 192.168.10.6/32
           via: 192.168.10.4
         - to: 192.168.10.7/32
           via: 192.168.10.4
+
     p1:
       optional: true
       addresses:
-        - 192.168.10.3/28
+        - 192.168.10.3/32
       routes:
         - to: 192.168.10.5/32
+          scope: link
+        - to: 192.168.10.6/32
           via: 192.168.10.5
         - to: 192.168.10.7/32
           via: 192.168.10.5
@@ -591,30 +627,37 @@ network:
   ethernets:
     pf1hpf:
       addresses:
-        - 192.168.20.1/28
+        - 192.168.20.1/32
       routes:
-        # Forward traffic from Laka side to Milu host, which bridges to DPU1 and onward to Hina
+        - to: 192.168.20.0/32
+          scope: link
+        # Cross-subnet: Hina side is reachable via Milu host
         - to: 192.168.10.0/28
-          via: 192.168.20.1
+          via: 192.168.20.0
+
     p0:
       optional: true
       addresses:
-        - 192.168.20.2/28
+        - 192.168.20.2/32
       routes:
-        # Route back toward Laka DPU and Laka host
         - to: 192.168.20.4/32
+          scope: link
+        - to: 192.168.20.6/32
           via: 192.168.20.4
         - to: 192.168.20.7/32
           via: 192.168.20.4
+
     p1:
       optional: true
       addresses:
-        - 192.168.20.3/28
+        - 192.168.20.3/32
       routes:
         - to: 192.168.20.5/32
-          via: 192.168.20.3
+          scope: link
+        - to: 192.168.20.6/32
+          via: 192.168.20.5
         - to: 192.168.20.7/32
-          via: 192.168.20.3
+          via: 192.168.20.5
 ```
 
 ---
