@@ -396,16 +396,24 @@ network:
 ```yaml
 network:
   version: 2
-  renderer: networkd
-  ethernets:
-    pf1hpf:
-      addresses:
-        - 192.168.8.2/24
-
-    p0:
-      optional: true
-      addresses:
-        - 192.168.4.2/24
+    renderer: networkd
+    ethernets:
+      p1:
+        dhcp4: false
+      pf1hpf:
+        dhcp4: false
+    bridges:
+      ovsbr1:
+        interfaces: [p1]
+        openvswitch: {}
+        addresses:
+          - 192.168.4.2/24
+        optional: true
+      ovsbr2:
+        interfaces: [pf1hpf]
+        openvswitch: {}
+        addresses:
+          - 192.168.8.2/24
 ```
 
 ### Laka Host Configuration
@@ -446,16 +454,24 @@ network:
 ```yaml
 network:
   version: 2
-  renderer: networkd
-  ethernets:
-    pf1hpf:
-      addresses:
-        - 192.168.5.2/24
-
-    p0:
-      optional: true
-      addresses:
-        - 192.168.3.2/24
+    renderer: networkd
+    ethernets:
+      p1:
+        dhcp4: false
+      pf1hpf:
+        dhcp4: false
+    bridges:
+      ovsbr1:
+        interfaces: [p1]
+        openvswitch: {}
+        addresses:
+          - 192.168.3.2/24
+        optional: true
+      ovsbr2:
+        interfaces: [pf1hpf]
+        openvswitch: {}
+        addresses:
+          - 192.168.5.2/24
 
 ```
 
@@ -504,16 +520,24 @@ network:
 ```yaml
 network:
   version: 2
-  renderer: networkd
-  ethernets:
-    pf1hpf:
-      addresses:
-        - 192.168.6.2/24
-
-    p0:
-      optional: true
-      addresses:
-        - 192.168.3.1/24
+    renderer: networkd
+    ethernets:
+      p1:
+        dhcp4: false
+      pf1hpf:
+        dhcp4: false
+    bridges:
+      ovsbr1:
+        interfaces: [p1]
+        openvswitch: {}
+        addresses:
+          - 192.168.3.1/24
+        optional: true
+      ovsbr2:
+        interfaces: [pf1hpf]
+        openvswitch: {}
+        addresses:
+          - 192.168.6.2/24
 ```
 
 ### Milu DPU 2 Configuration
@@ -525,16 +549,24 @@ network:
 ```yaml
 network:
   version: 2
-  renderer: networkd
-  ethernets:
-    pf1hpf:
-      addresses:
-        - 192.168.7.2/24
-
-    p0:
-      optional: true
-      addresses:
-        - 192.168.4.1/24
+    renderer: networkd
+    ethernets:
+      p1:
+        dhcp4: false
+      pf1hpf:
+        dhcp4: false
+    bridges:
+      ovsbr1:
+        interfaces: [p1]
+        openvswitch: {}
+        addresses:
+          - 192.168.4.1/24
+        optional: true
+      ovsbr2:
+        interfaces: [pf1hpf]
+        openvswitch: {}
+        addresses:
+          - 192.168.7.2/24
 ```
 
 ---
