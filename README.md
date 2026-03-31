@@ -293,7 +293,8 @@ Milu has two host interfaces, one per DPU, each on a separate subnet:
 
 ---
 
-## DPU Configuration
+## DPU Configuration for multi-DPU systems
+> **Note:** Specificly for the Milu system only
 
 ### Accessing the DPU Controller Interface
 
@@ -303,7 +304,7 @@ On systems with **multiple DPUs**, each card is configured with its own unique t
 
 #### Step 1: Open the rshim Console for the Target DPU
 
-> **Machine:** Host machine (Laka, Hina, or Milu)
+> **Machine:** Milu machine
 
 Connect to the DPU's serial console through its rshim device. For DPU 1 (rshim0):
 
@@ -318,6 +319,10 @@ sudo minicom -D /dev/rshim1/console
 ```
 
 Log in with the DPU's credentials when prompted.
+
+Default credentials are...
+  - user: `ubuntu`
+  - password: `ubuntu`
 
 #### Step 2: Configure a Unique tmfifo IP on the DPU
 
@@ -334,21 +339,24 @@ Set the addresses according to which DPU you are configuring:
 - **DPU 1 (rshim0):** use `192.168.101.1/30` on `tmfifo_net0`
 - **DPU 2 (rshim1):** use `192.168.102.1/30` on `tmfifo_net1`
 
-**Example configuration for Host machine:**
+**Example configuration for DPU 1 machine:**
 
 ```yaml
 network:
   version: 2
-  renderer: networkd
   ethernets:
+    oob_net0:
+      renderer: NetworkManager
+      dhcp4: true
     tmfifo_net0:
-      dhcp4: false
+      renderer: NetworkManager
       addresses:
-        - "192.168.101.1/30"
-    tmfifo_net1:
+      - "192.168.101.2/30"
       dhcp4: false
-      addresses:
-        - "192.168.102.1/30"
+      routes:
+      - metric: 1025
+        to: "0.0.0.0/0"
+        via: "192.168.101.1"
 ```
 
 After saving the file, apply the configuration:
@@ -363,7 +371,22 @@ Repeat this process (Steps 1–2) for each DPU, adjusting the subnet accordingly
 
 > **Machine:** Host machine (Laka, Hina, or Milu) — this command connects you to the DPU
 
-Once the tmfifo IP has been configured on the DPU, SSH into it using the corresponding address:
+Once the tmfifo IP has been configured on the DPU, you must set up the `tmfifo` interfaces on the host. Here is an example:
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    tmfifo_net0:
+      dhcp4: false
+      addresses:
+        - "192.168.101.1/30"
+    tmfifo_net1:
+      dhcp4: false
+      addresses:
+        - "192.168.102.1/30"
+```
+Then SSH into it using the corresponding address:
 
 For DPU 1:
 ```bash
@@ -377,36 +400,13 @@ ssh ubuntu@192.168.102.2
 
 - Default password: `ubuntu`
 - **Note:** Upon first login, you will be forced to set a new password (minimum 12 characters)
-- Current password: Set to the standard research machine password (entered twice during setup)
+- Current password: `purplefrog8362`
 
 ---
 
-### Multi-DPU SSH Workflow
+# Building the Network
 
-> **Machine:** Milu host machine (or any host with more than one DPU)
-
-Because each DPU has been configured with a unique tmfifo IP (via the rshim console in the steps above), multiple DPUs can be accessed simultaneously without routing conflicts or SSH host key collisions.
-
-#### Workflow Summary for Milu (two DPUs)
-
-**1. Configure a unique IP on each DPU via the rshim console** (see Steps 1–2 above). This only needs to be done once per card.
-
-**2. SSH into each DPU directly using its dedicated address:**
-
-For DPU 1:
-```bash
-ssh ubuntu@192.168.101.2
-```
-
-For DPU 2:
-```bash
-ssh ubuntu@192.168.102.2
-```
-
-No cleanup or host-key removal steps are required between connections since each DPU has a distinct address.
-
-
----
+Once all the cards and DPUs have been setup, it is time to setup the network via netplan.
 
 ## Reference: Netplan Configuration Files
 
