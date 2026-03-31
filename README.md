@@ -203,7 +203,7 @@ Once the bridges have been setup, you can move onto setting up the network acros
 ---
 
 ## Machine Network Configuration
-> **Note:** At the end of this MD file, you will find all the netplan configurations used for this guide. 
+> **Note:** At the end of this MD file, you will find all the netplan configurations used for this guide.
 
 ### Laka Machine
 
@@ -213,6 +213,13 @@ Once the bridges have been setup, you can move onto setting up the network acros
 - IP Address: `10.37.11.91/24`
 - DNS: `10.32.4.38, 10.32.4.39`
 
+**Host-to-DPU Interface (enp1s0f0np0):**
+- IP Address: `192.168.5.1/24`
+
+**Laka DPU (OVS Bridges):**
+- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.5.2/24`
+- ovsbr1 (p0 — DPU-to-DPU): `192.168.3.2/24`
+
 ### Hina Machine
 
 **Hostname:** `hina.medianet.cs.kent.edu`
@@ -221,47 +228,68 @@ Once the bridges have been setup, you can move onto setting up the network acros
 - IP Address: `10.37.11.92/24`
 - DNS: `10.32.4.38, 10.32.4.39`
 
+**Host-to-DPU Interface (enp1s0f0np0):**
+- IP Address: `192.168.8.1/24`
+
+**Hina DPU (OVS Bridges):**
+- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.8.2/24`
+- ovsbr1 (p0 — DPU-to-DPU): `192.168.4.2/24`
+
 ### Milu Machine
 
 **Hostname:** `milu.medianet.cs.kent.edu`
 
 > **Note:** Milu hosts multiple DPUs. Refer to the Multi-DPU sections throughout this document for rshim numbering, tmfifo interface naming, and subnet assignments when working with Milu.
 
-**Ethernet Interface (enp7s0):**
+**Ethernet Interface (eno2np1):**
 - IP Address: `10.37.11.90/24`
 - DNS: `10.32.4.38, 10.32.4.39`
+
+**Host-to-DPU1 Interface (enp1s0f0np0):**
+- IP Address: `192.168.7.1/24`
+
+**Host-to-DPU2 Interface (enp193s0f0np0):**
+- IP Address: `192.168.6.1/24`
+
+**Milu DPU 1 (OVS Bridges):**
+- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.7.2/24`
+- ovsbr1 (p0 — DPU-to-DPU): `192.168.3.1/24`
+
+**Milu DPU 2 (OVS Bridges):**
+- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.6.2/24`
+- ovsbr1 (p0 — DPU-to-DPU): `192.168.4.1/24`
 
 ---
 
 ### Host-to-DPU Communication IP Addressing
 
-Laka and Milu DPU1 share the `192.168.3.0/24` subnet for DPU-to-DPU communication. Hina and Milu DPU2 share the `192.168.4.0/24` subnet for DPU-to-DPU communication. Milu sits in the middle of both, acting as the bridge between the two sides. Host-to-DPU PCIe links use the `192.168.5.0/24` and `192.168.6.0/24` subnets.
+Laka DPU and Milu DPU1 share the `192.168.3.0/24` subnet for DPU-to-DPU communication (ovsbr1). Hina DPU and Milu DPU2 share the `192.168.4.0/24` subnet for DPU-to-DPU communication (ovsbr1). Milu sits in the middle of both, acting as the bridge between the two sides. Each host-to-DPU link (ovsbr2) uses its own subnet: `192.168.5.0/24` (Laka), `192.168.6.0/24` (Milu DPU2), `192.168.7.0/24` (Milu DPU1), and `192.168.8.0/24` (Hina).
 
 > **Recommended:** Use the netplan configuration files in the Reference section below for automatic IP address and routing setup.
 
 #### Hina IP Assignments
-- **Hina Host (enp1s0f1np1):** `192.168.5.1/24`
-- **Hina DPU pf1hpf (Host-to-DPU):** `192.168.5.2/24`
-- **Hina DPU P0 (DPU-to-DPU):** `192.168.4.2/24`
+- **Hina Host (enp1s0f0np0):** `192.168.8.1/24`
+- **Hina DPU ovsbr2/pf0hpf (Host-to-DPU):** `192.168.8.2/24`
+- **Hina DPU ovsbr1/p0 (DPU-to-DPU):** `192.168.4.2/24`
 
 #### Laka IP Assignments
-- **Laka Host (enp1s0f1np1):** `192.168.5.1/24`
-- **Laka DPU pf1hpf (Host-to-DPU):** `192.168.5.2/24`
-- **Laka DPU P0 (DPU-to-DPU):** `192.168.3.2/24`
+- **Laka Host (enp1s0f0np0):** `192.168.5.1/24`
+- **Laka DPU ovsbr2/pf0hpf (Host-to-DPU):** `192.168.5.2/24`
+- **Laka DPU ovsbr1/p0 (DPU-to-DPU):** `192.168.3.2/24`
 
 #### Milu IP Assignments
 
 Milu has two host interfaces, one per DPU, each on a separate subnet:
 
-**DPU 1 — P0 subnet `192.168.3.0/24` (shared with Laka)**
-- **Milu Host Interface (enp2):** `192.168.5.1/24`
-- **Milu DPU 1 pf1hpf (Host-to-DPU):** `192.168.5.2/24`
-- **Milu DPU 1 P0 (DPU-to-DPU):** `192.168.3.1/24`
+**DPU 1 — ovsbr1/p0 subnet `192.168.3.0/24` (shared with Laka)**
+- **Milu Host Interface (enp1s0f0np0):** `192.168.7.1/24`
+- **Milu DPU 1 ovsbr2/pf0hpf (Host-to-DPU):** `192.168.7.2/24`
+- **Milu DPU 1 ovsbr1/p0 (DPU-to-DPU):** `192.168.3.1/24`
 
-**DPU 2 — P0 subnet `192.168.4.0/24` (shared with Hina)**
-- **Milu Host Interface (enp255):** `192.168.6.1/24`
-- **Milu DPU 2 pf1hpf (Host-to-DPU):** `192.168.6.2/24`
-- **Milu DPU 2 P0 (DPU-to-DPU):** `192.168.4.1/24`
+**DPU 2 — ovsbr1/p0 subnet `192.168.4.0/24` (shared with Hina)**
+- **Milu Host Interface (enp193s0f0np0):** `192.168.6.1/24`
+- **Milu DPU 2 ovsbr2/pf0hpf (Host-to-DPU):** `192.168.6.2/24`
+- **Milu DPU 2 ovsbr1/p0 (DPU-to-DPU):** `192.168.4.1/24`
 
 ---
 
