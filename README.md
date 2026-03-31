@@ -197,10 +197,29 @@ ovs_version: x
 
 Once the bridges have been setup, you can move onto setting up the network across all the machines.
 
-
-> **Note:** This must be done on **all DPUs**.
+> **Note:** This bridge setup must be done on **all DPUs**.
 
 ---
+
+## DPU Configuration for single-DPU systems
+
+The DPU exposes a virtual network device on the host called `tmfifo_net0` (or similar) that allows you to SSH directly into the DPU's ARM-based operating system for initial configuration.
+
+This can be down by setting up your host with a new netplan configuration file.
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    tmfifo_net0:
+      dhcp4: false
+      addresses:
+        - "192.168.100.1/30"
+```
+
+Once this has been setup, you can ssh into the DPU to continue setup!
+
 
 ## DPU Configuration for multi-DPU systems
 > **Note:** Specificly for the Milu system only
