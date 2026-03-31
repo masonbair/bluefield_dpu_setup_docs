@@ -378,13 +378,20 @@ network:
       nameservers:
         addresses: [10.32.4.38, 10.32.4.39]
 
-    enp1s0f1np1:
+    enp1s0f0np0:
       addresses:
         - 192.168.8.1/24
       routes:
-        # # On-link peer: Hina DPU pf1hpf
-        - to: 192.168.8.2/24
-          via: 192.168.8.1
+        - to: 192.168.4.0/24
+          via: 192.168.8.2
+        - to: 192.168.6.0/24
+          via: 192.168.8.2
+        - to: 192.168.5.0/24
+          via: 192.168.8.2
+        - to: 192.168.7.0/24
+          via: 192.168.8.2
+        - to: 192.168.3.0/24
+          via: 192.168.8.2
 ```
 
 ### Hina DPU Configuration
@@ -396,24 +403,34 @@ network:
 ```yaml
 network:
   version: 2
-    renderer: networkd
-    ethernets:
-      p1:
-        dhcp4: false
-      pf1hpf:
-        dhcp4: false
-    bridges:
-      ovsbr1:
-        interfaces: [p1]
-        openvswitch: {}
-        addresses:
-          - 192.168.4.2/24
-        optional: true
-      ovsbr2:
-        interfaces: [pf1hpf]
-        openvswitch: {}
-        addresses:
-          - 192.168.8.2/24
+  renderer: networkd
+  ethernets:
+    p0:
+      dhcp4: false
+    pf0hpf:
+      dhcp4: false
+  bridges:
+    ovsbr1:
+      interfaces: [p0]
+      openvswitch: {}
+      addresses:
+        - 192.168.4.2/24
+      optional: true
+      routes:
+        - to: 192.168.6.0/24
+          via: 192.168.4.1
+        - to: 192.168.7.0/24
+          via: 192.168.4.1 
+        - to: 192.168.5.0/24
+          via: 192.168.4.1  
+        - to: 192.168.3.0/24
+          via: 192.168.4.1 
+    ovsbr2:
+      interfaces: [pf0hpf]
+      openvswitch: {}
+      addresses:
+        - 192.168.8.2/24
+
 ```
 
 ### Laka Host Configuration
@@ -437,12 +454,21 @@ network:
       nameservers:
         addresses: [10.32.4.38, 10.32.4.39]
 
-    enp1s0f1np1:
+    enp1s0f0np0:
       addresses:
         - 192.168.5.1/24
       routes:
-        - to: 192.168.5.2/24
-          via: 192.168.5.1
+        - to: 192.168.3.0/24
+          via: 192.168.5.2
+        - to: 192.168.7.0/24
+          via: 192.168.5.2
+        - to: 192.168.8.0/24
+          via: 192.168.5.2
+        - to: 192.168.6.0/24
+          via: 192.168.5.2
+        - to: 192.168.4.0/24
+          via: 192.168.5.2
+
 ```
 
 ### Laka DPU Configuration
@@ -454,24 +480,34 @@ network:
 ```yaml
 network:
   version: 2
-    renderer: networkd
-    ethernets:
-      p1:
-        dhcp4: false
-      pf1hpf:
-        dhcp4: false
-    bridges:
-      ovsbr1:
-        interfaces: [p1]
-        openvswitch: {}
-        addresses:
-          - 192.168.3.2/24
-        optional: true
-      ovsbr2:
-        interfaces: [pf1hpf]
-        openvswitch: {}
-        addresses:
-          - 192.168.5.2/24
+  renderer: networkd
+  ethernets:
+    p0:
+      dhcp4: false
+    pf0hpf:
+      dhcp4: false
+  bridges:
+    ovsbr1:
+      interfaces: [p0]
+      openvswitch: {}
+      addresses:
+        - 192.168.3.2/24
+      optional: true
+      routes:
+        - to: 192.168.7.0/24
+          via: 192.168.3.1
+        - to: 192.168.8.0/24
+          via: 192.168.3.1
+        - to: 192.168.4.0/24
+          via: 192.168.3.1
+        - to: 192.168.6.0/24
+          via: 192.168.3.1
+    ovsbr2:
+      interfaces: [pf0hpf]
+      openvswitch: {}
+      addresses:
+        - 192.168.5.2/24
+
 
 ```
 
@@ -486,7 +522,7 @@ network:
   version: 2
   renderer: NetworkManager
   ethernets:
-    enp7s0:
+    eno2np1:
       dhcp4: no
       addresses:
         - 10.37.11.90/24
@@ -496,19 +532,23 @@ network:
       nameservers:
         addresses: [10.32.4.38, 10.32.4.39]
 
-    enp2:
-      addresses:
-        - 192.168.6.1/24
-      routes:
-        - to: 192.168.6.2/24
-          via: 192.168.6.1
-
-    enp255:
+    enp1s0f0np0:
       addresses:
         - 192.168.7.1/24
       routes:
-        - to: 192.168.7.2/24
+        - to: 192.168.5.0/24
           via: 192.168.7.2
+        - to: 192.168.3.0/24
+          via: 192.168.7.2
+
+    enp193s0f0np0:
+      addresses:
+        - 192.168.6.1/24
+      routes:
+        - to: 192.168.4.0/24
+          via: 192.168.6.2
+        - to: 192.168.8.0/24
+          via: 192.168.6.2
 ```
 
 ### Milu DPU 1 Configuration
@@ -520,24 +560,33 @@ network:
 ```yaml
 network:
   version: 2
-    renderer: networkd
-    ethernets:
-      p1:
-        dhcp4: false
-      pf1hpf:
-        dhcp4: false
-    bridges:
-      ovsbr1:
-        interfaces: [p1]
-        openvswitch: {}
-        addresses:
-          - 192.168.3.1/24
-        optional: true
-      ovsbr2:
-        interfaces: [pf1hpf]
-        openvswitch: {}
-        addresses:
-          - 192.168.6.2/24
+  renderer: networkd
+  ethernets:
+    p0:
+      dhcp4: false
+    pf0hpf:
+      dhcp4: false
+  bridges:
+    ovsbr1:
+      interfaces: [p0]
+      openvswitch: {}
+      addresses:
+        - 192.168.3.1/24
+      optional: true
+      routes:
+        - to: 192.168.5.0/24
+          via: 192.168.3.2
+    ovsbr2:
+      interfaces: [pf0hpf]
+      openvswitch: {}
+      addresses:
+        - 192.168.7.2/24
+      routes:
+        - to: 192.168.8.0/24
+          via: 192.168.7.1
+        - to: 192.168.6.0/24
+          via: 192.168.7.1
+
 ```
 
 ### Milu DPU 2 Configuration
@@ -549,24 +598,32 @@ network:
 ```yaml
 network:
   version: 2
-    renderer: networkd
-    ethernets:
-      p1:
-        dhcp4: false
-      pf1hpf:
-        dhcp4: false
-    bridges:
-      ovsbr1:
-        interfaces: [p1]
-        openvswitch: {}
-        addresses:
-          - 192.168.4.1/24
-        optional: true
-      ovsbr2:
-        interfaces: [pf1hpf]
-        openvswitch: {}
-        addresses:
-          - 192.168.7.2/24
+  renderer: networkd
+  ethernets:
+    p0:
+      dhcp4: false
+    pf0hpf:
+      dhcp4: false
+  bridges:
+    ovsbr1:
+      interfaces: [p0]
+      openvswitch: {}
+      addresses:
+        - 192.168.4.1/24
+      optional: true
+      routes:
+        - to: 192.168.8.0/24
+          via: 192.168.4.2
+    ovsbr2:
+      interfaces: [pf0hpf]
+      openvswitch: {}
+      addresses:
+        - 192.168.6.2/24
+      routes:
+        - to: 192.168.7.0/24
+          via: 192.168.6.1
+        - to: 192.168.5.0/24
+          via: 192.168.6.1
 ```
 
 ---
