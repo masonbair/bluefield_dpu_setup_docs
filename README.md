@@ -151,22 +151,59 @@ sudo systemctl status mst.service
 
 ---
 
-## Disabling Open vSwitch
+## Utilizing Open vSwitch
 
-> **Machine:** All host machines (Laka, Hina, and Milu)
+> **Machine:** All DPU machines
 
-Open vSwitch can create bridge interfaces that interfere with proper communication between compute nodes. Disable it on all hosts to avoid connectivity issues:
+Open vSwitch creates proper bridging between DPUs which helps to limit the load on the CPU. In order for the DPUs to properly work, you must set up two bridges.
 
+One bridge is for the communication between the host and the DPU (pf0hpf is an example interface for this), and the other bridge is for the communication between the two DPUs (p0 or p1 are the interfaces for this).
+
+The way bridges work is that only one IP address can be assigned per bridge, so we have to split up into two bridges to have two seperate IP addresses.
+
+Running  `ovs-vsctl show` will show you how the bridges are currently configured. For the purpose of this setup guide we will only worry about ports: pf0hpf and p0.
+
+To properly configure these two ports on seperate bridges, you need to first delete `p1` and `pf1hpf` via:
 ```bash
-sudo systemctl stop openvswitch-switch
-sudo systemctl disable openvswitch-switch
+ovs-vsctl del-port ovsbr2 p1
+ovs-vsctl del-port ovsbr2 pf1hpf
 ```
 
-> **Note:** This must be done on **all hosts**.
+Once these two ports are deleted from their bridge, we can move `pf0hpf` to the `ovsbr2` bridge.
+```bash
+ovs-vsctl del-port ovsbr1 pf0hpf
+ovs-vsctl add-port ovsbr2 pf0hpf
+```
+
+Here is an example of what a proper `ovs-vsctl show` looks like:
+
+```
+Bridge ovsbr2
+  fail_mode: standalone
+  Port pf0hpf
+    Interface pf0hpf
+  Port ovsbr2
+    Interface ovsbr2
+      type: internal
+Bridge ovsbr1
+  fail_mode: standalone
+  Port p0
+    Interface p0
+  Port ovsbr1
+    Interface ovsbr1
+      type: internal
+ovs_version: x
+```
+
+Once the bridges have been setup, you can move onto setting up the network across all the machines.
+
+
+> **Note:** This must be done on **all DPUs**.
 
 ---
 
 ## Machine Network Configuration
+> **Note:** At the end of this MD file, you will find all the netplan configurations used for this guide. 
 
 ### Laka Machine
 
