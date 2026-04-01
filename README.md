@@ -176,61 +176,15 @@ sudo systemctl status mst.service
 
 ---
 
-## Utilizing Open vSwitch
+## DPU Configuration for Single-DPU Systems
 
-> **Machine:** All DPU machines
+> **Machine:** Laka and Hina host machines
 
-Open vSwitch creates proper bridging between DPUs which helps to limit the load on the CPU. In order for the DPUs to properly work, you must set up two bridges.
+The DPU exposes a virtual network device on the host called `tmfifo_net0` that allows you to SSH directly into the DPU's ARM-based operating system for initial configuration.
 
-One bridge is for the communication between the host and the DPU (pf0hpf is an example interface for this), and the other bridge is for the communication between the two DPUs (p0 or p1 are the interfaces for this).
+### Step 1: Configure the tmfifo Interface on the Host
 
-The way bridges work is that only one IP address can be assigned per bridge, so we have to split up into two bridges to have two seperate IP addresses.
-
-Running  `ovs-vsctl show` will show you how the bridges are currently configured. For the purpose of this setup guide we will only worry about ports: pf0hpf and p0.
-
-To properly configure these two ports on seperate bridges, you need to first delete `p1` and `pf1hpf` via:
-```bash
-ovs-vsctl del-port ovsbr2 p1
-ovs-vsctl del-port ovsbr2 pf1hpf
-```
-
-Once these two ports are deleted from their bridge, we can move `pf0hpf` to the `ovsbr2` bridge.
-```bash
-ovs-vsctl del-port ovsbr1 pf0hpf
-ovs-vsctl add-port ovsbr2 pf0hpf
-```
-
-Here is an example of what a proper `ovs-vsctl show` looks like:
-
-```
-Bridge ovsbr2
-  fail_mode: standalone
-  Port pf0hpf
-    Interface pf0hpf
-  Port ovsbr2
-    Interface ovsbr2
-      type: internal
-Bridge ovsbr1
-  fail_mode: standalone
-  Port p0
-    Interface p0
-  Port ovsbr1
-    Interface ovsbr1
-      type: internal
-ovs_version: x
-```
-
-Once the bridges have been setup, you can move onto setting up the network across all the machines.
-
-> **Note:** This bridge setup must be done on **all DPUs**.
-
----
-
-## DPU Configuration for single-DPU systems
-
-The DPU exposes a virtual network device on the host called `tmfifo_net0` (or similar) that allows you to SSH directly into the DPU's ARM-based operating system for initial configuration.
-
-This can be down by setting up your host with a new netplan configuration file.
+Create or edit a netplan configuration file on the host to assign an IP to the `tmfifo_net0` interface:
 
 ```yaml
 network:
@@ -243,11 +197,26 @@ network:
         - "192.168.100.1/30"
 ```
 
-Once this has been setup, you can ssh into the DPU to continue setup!
+Apply the configuration:
 
+```bash
+sudo netplan apply
+```
 
-## DPU Configuration for multi-DPU systems
-> **Note:** Specificly for the Milu system only
+### Step 2: SSH into the DPU
+
+```bash
+ssh ubuntu@192.168.100.2
+```
+
+- Default credentials: user `ubuntu`, password `ubuntu`
+- Upon first login, you will be forced to set a new password (minimum 12 characters)
+
+---
+
+## DPU Configuration for Multi-DPU Systems
+
+> **Note:** Specifically for the Milu system only
 
 ### Accessing the DPU Controller Interface
 
@@ -262,13 +231,13 @@ On systems with **multiple DPUs**, each card is configured with its own unique t
 Connect to the DPU's serial console through its rshim device. For DPU 1 (rshim0):
 
 ```bash
-sudo minicom -D /dev/rshim0/console
+sudo screen /dev/rshim0/console
 ```
 
 For DPU 2 (rshim1):
 
 ```bash
-sudo minicom -D /dev/rshim1/console
+sudo screen /dev/rshim1/console
 ```
 
 Log in with the DPU's credentials when prompted.
@@ -353,42 +322,98 @@ ssh ubuntu@192.168.102.2
 
 - Default password: `ubuntu`
 - **Note:** Upon first login, you will be forced to set a new password (minimum 12 characters)
-- Current password: `purplefrog8362`
+- Current password: Set to the standard research machine password
+
+---
+
+## Configuring Open vSwitch Bridges
+
+> **Machine:** All DPU machines (requires SSH access — see DPU Configuration sections above)
+
+Open vSwitch creates proper bridging between DPUs which helps to limit the load on the CPU. In order for the DPUs to properly work, you must set up two bridges.
+
+One bridge is for the communication between the host and the DPU (`pf0hpf` is the interface for this), and the other bridge is for the communication between the two DPUs (`p0` is the interface for this).
+
+Only one IP address can be assigned per bridge, so we need two separate bridges to have two separate IP addresses.
+
+Running `ovs-vsctl show` will show you how the bridges are currently configured. For the purpose of this setup guide we will only worry about ports: `pf0hpf` and `p0`.
+
+To properly configure these two ports on separate bridges, you need to first delete `p1` and `pf1hpf` via:
+```bash
+ovs-vsctl del-port ovsbr2 p1
+ovs-vsctl del-port ovsbr2 pf1hpf
+```
+
+Once these two ports are deleted from their bridge, we can move `pf0hpf` to the `ovsbr2` bridge.
+```bash
+ovs-vsctl del-port ovsbr1 pf0hpf
+ovs-vsctl add-port ovsbr2 pf0hpf
+```
+
+Here is an example of what a proper `ovs-vsctl show` looks like:
+
+```
+Bridge ovsbr2
+  fail_mode: standalone
+  Port pf0hpf
+    Interface pf0hpf
+  Port ovsbr2
+    Interface ovsbr2
+      type: internal
+Bridge ovsbr1
+  fail_mode: standalone
+  Port p0
+    Interface p0
+  Port ovsbr1
+    Interface ovsbr1
+      type: internal
+ovs_version: x
+```
+
+Once the bridges have been set up, you can move onto setting up the network across all the machines.
+
+> **Note:** This bridge setup must be done on **all DPUs**.
 
 ---
 
 ## Machine Network Configuration
+
 > **Note:** At the end of this MD file, you will find all the netplan configurations used for this guide.
+
+### Subnet Overview
+
+Laka DPU and Milu DPU1 share the `192.168.3.0/24` subnet for DPU-to-DPU communication (ovsbr1). Hina DPU and Milu DPU2 share the `192.168.4.0/24` subnet for DPU-to-DPU communication (ovsbr1). Milu sits in the middle of both, acting as the bridge between the two sides. Each host-to-DPU link (ovsbr2) uses its own subnet:
+
+| Subnet | Purpose |
+|--------|---------|
+| `192.168.3.0/24` | DPU-to-DPU: Laka DPU ↔ Milu DPU1 (ovsbr1) |
+| `192.168.4.0/24` | DPU-to-DPU: Hina DPU ↔ Milu DPU2 (ovsbr1) |
+| `192.168.5.0/24` | Host-to-DPU: Laka Host ↔ Laka DPU (ovsbr2) |
+| `192.168.6.0/24` | Host-to-DPU: Milu Host ↔ Milu DPU2 (ovsbr2) |
+| `192.168.7.0/24` | Host-to-DPU: Milu Host ↔ Milu DPU1 (ovsbr2) |
+| `192.168.8.0/24` | Host-to-DPU: Hina Host ↔ Hina DPU (ovsbr2) |
 
 ### Laka Machine
 
 **Hostname:** `laka.medianet.cs.kent.edu`
 
-**Ethernet Interface (enp7s0):**
-- IP Address: `10.37.11.91/24`
-- DNS: `10.32.4.38, 10.32.4.39`
-
-**Host-to-DPU Interface (enp1s0f0np0):**
-- IP Address: `192.168.5.1/24`
-
-**Laka DPU (OVS Bridges):**
-- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.5.2/24`
-- ovsbr1 (p0 — DPU-to-DPU): `192.168.3.2/24`
+| Interface | IP Address | Purpose |
+|-----------|-----------|---------|
+| enp7s0 | `10.37.11.91/24` | Management (DNS: `10.32.4.38, 10.32.4.39`) |
+| enp1s0f0np0 | `192.168.5.1/24` | Host-to-DPU |
+| DPU ovsbr2 (pf0hpf) | `192.168.5.2/24` | Host-to-DPU (DPU side) |
+| DPU ovsbr1 (p0) | `192.168.3.2/24` | DPU-to-DPU (→ Milu DPU1) |
 
 ### Hina Machine
 
 **Hostname:** `hina.medianet.cs.kent.edu`
 
-**Ethernet Interface (enp7s0):**
-- IP Address: `10.37.11.92/24`
-- DNS: `10.32.4.38, 10.32.4.39`
-
-**Host-to-DPU Interface (enp1s0f0np0):**
-- IP Address: `192.168.8.1/24`
-
-**Hina DPU (OVS Bridges):**
-- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.8.2/24`
-- ovsbr1 (p0 — DPU-to-DPU): `192.168.4.2/24`
+| Interface | IP Address | Purpose |
+|-----------|-----------|---------|
+| enp7s0 | `10.37.11.92/24` | Management (DNS: `10.32.4.38, 10.32.4.39`) |
+| enp1s0f0np0 | `192.168.8.1/24` | Host-to-DPU |
+| DPU ovsbr2 (pf0hpf) | `192.168.8.2/24` | Host-to-DPU (DPU side) |
+| DPU ovsbr1 (p0) | `192.168.4.2/24` | DPU-to-DPU (→ Milu DPU2) |
 
 ### Milu Machine
 
@@ -396,61 +421,49 @@ ssh ubuntu@192.168.102.2
 
 > **Note:** Milu hosts multiple DPUs. Refer to the Multi-DPU sections throughout this document for rshim numbering, tmfifo interface naming, and subnet assignments when working with Milu.
 
-**Ethernet Interface (eno2np1):**
-- IP Address: `10.37.11.90/24`
-- DNS: `10.32.4.38, 10.32.4.39`
-
-**Host-to-DPU1 Interface (enp1s0f0np0):**
-- IP Address: `192.168.7.1/24`
-
-**Host-to-DPU2 Interface (enp193s0f0np0):**
-- IP Address: `192.168.6.1/24`
-
-**Milu DPU 1 (OVS Bridges):**
-- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.7.2/24`
-- ovsbr1 (p0 — DPU-to-DPU): `192.168.3.1/24`
-
-**Milu DPU 2 (OVS Bridges):**
-- ovsbr2 (pf0hpf — Host-to-DPU): `192.168.6.2/24`
-- ovsbr1 (p0 — DPU-to-DPU): `192.168.4.1/24`
-
----
-
-### Host-to-DPU Communication IP Addressing
-
-Laka DPU and Milu DPU1 share the `192.168.3.0/24` subnet for DPU-to-DPU communication (ovsbr1). Hina DPU and Milu DPU2 share the `192.168.4.0/24` subnet for DPU-to-DPU communication (ovsbr1). Milu sits in the middle of both, acting as the bridge between the two sides. Each host-to-DPU link (ovsbr2) uses its own subnet: `192.168.5.0/24` (Laka), `192.168.6.0/24` (Milu DPU2), `192.168.7.0/24` (Milu DPU1), and `192.168.8.0/24` (Hina).
-
-> **Recommended:** Use the netplan configuration files in the Reference section below for automatic IP address and routing setup.
-
-#### Hina IP Assignments
-- **Hina Host (enp1s0f0np0):** `192.168.8.1/24`
-- **Hina DPU ovsbr2/pf0hpf (Host-to-DPU):** `192.168.8.2/24`
-- **Hina DPU ovsbr1/p0 (DPU-to-DPU):** `192.168.4.2/24`
-
-#### Laka IP Assignments
-- **Laka Host (enp1s0f0np0):** `192.168.5.1/24`
-- **Laka DPU ovsbr2/pf0hpf (Host-to-DPU):** `192.168.5.2/24`
-- **Laka DPU ovsbr1/p0 (DPU-to-DPU):** `192.168.3.2/24`
-
-#### Milu IP Assignments
-
-Milu has two host interfaces, one per DPU, each on a separate subnet:
-
-**DPU 1 — ovsbr1/p0 subnet `192.168.3.0/24` (shared with Laka)**
-- **Milu Host Interface (enp1s0f0np0):** `192.168.7.1/24`
-- **Milu DPU 1 ovsbr2/pf0hpf (Host-to-DPU):** `192.168.7.2/24`
-- **Milu DPU 1 ovsbr1/p0 (DPU-to-DPU):** `192.168.3.1/24`
-
-**DPU 2 — ovsbr1/p0 subnet `192.168.4.0/24` (shared with Hina)**
-- **Milu Host Interface (enp193s0f0np0):** `192.168.6.1/24`
-- **Milu DPU 2 ovsbr2/pf0hpf (Host-to-DPU):** `192.168.6.2/24`
-- **Milu DPU 2 ovsbr1/p0 (DPU-to-DPU):** `192.168.4.1/24`
+| Interface | IP Address | Purpose |
+|-----------|-----------|---------|
+| eno2np1 | `10.37.11.90/24` | Management (DNS: `10.32.4.38, 10.32.4.39`) |
+| enp1s0f0np0 | `192.168.7.1/24` | Host-to-DPU1 |
+| enp193s0f0np0 | `192.168.6.1/24` | Host-to-DPU2 |
+| DPU1 ovsbr2 (pf0hpf) | `192.168.7.2/24` | Host-to-DPU (DPU1 side) |
+| DPU1 ovsbr1 (p0) | `192.168.3.1/24` | DPU-to-DPU (→ Laka DPU) |
+| DPU2 ovsbr2 (pf0hpf) | `192.168.6.2/24` | Host-to-DPU (DPU2 side) |
+| DPU2 ovsbr1 (p0) | `192.168.4.1/24` | DPU-to-DPU (→ Hina DPU) |
 
 ---
 
 # Building the Network
 
-Once all the cards and DPUs have been setup, it is time to setup the network via netplan.
+Once all the cards and DPUs have been set up, it is time to set up the network via netplan.
+
+## Enable IP Forwarding
+
+> **Machine:** All DPUs and Milu Host
+
+Every device that forwards traffic between subnets must have IP forwarding enabled. Without this, packets will arrive at a hop but be dropped instead of forwarded to the next subnet.
+
+Enable it immediately:
+
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+```
+
+To make it persistent across reboots, add or uncomment the following line in `/etc/sysctl.conf`:
+
+```
+net.ipv4.ip_forward=1
+```
+
+Then apply:
+
+```bash
+sudo sysctl -p
+```
+
+> **Note:** This must be done on **all DPUs** (Hina, Laka, Milu DPU1, Milu DPU2) and on **Milu Host**, since they all act as forwarding hops in the network path.
+
+---
 
 ## Reference: Netplan Configuration Files
 
