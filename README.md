@@ -9,6 +9,30 @@
 3. Install the driver on the target machine by running the `autorun.sh` script included in the downloaded package
 
 ---
+## NVIDIA GPU Driver Installation
+
+### When GPU Drivers Are Also Needed
+
+When a machine requires both DPU and GPU drivers, the GPU driver must be installed manually with specific flags to avoid conflicts. Do not use package managers or other tools to install the driver.
+
+The default NVIDIA GPU driver installation includes components that interfere with the DPU:
+
+- **`--no-peermem`** — Disables `nvidia-peermem`, which enables direct peer-to-peer read/write access to GPU video memory. This conflicts with the DPU’s own peermem module.
+- **`--no-dkms`** — Disables Dynamic Kernel Module Support (DKMS), which automatically rebuilds the driver on kernel updates. This may require manual reinstallation after kernel upgrades, but ensures the driver remains compatible with the DPUs.
+- **`--no-nouveau-check`** — Skips the check for the open-source Nouveau driver.
+- **`--no-kernel-module-source`** — Skips installation of the kernel module source files.
+- **`--no-rebuild-initramfs`** — Skips rebuilding the initial RAM filesystem.
+
+### Installation Steps
+
+1. Download the appropriate driver from NVIDIA. For GeForce RTX 5080 (driver version 570): [NVIDIA Driver Download](https://www.nvidia.com/en-us/drivers/details/261111/)
+2. Run the installer with the required flags:
+
+```bash
+sudo sh ./NVIDIA-Linux-x86_64-570.211.01.run --no-peermem --no-dkms --no-nouveau-check --no-kernel-module-source --no-rebuild-initramfs
+```
+
+---
 
 ## DOCA and MST Installation on Ubuntu Host
 
