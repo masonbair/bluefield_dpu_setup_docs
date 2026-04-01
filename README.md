@@ -322,7 +322,7 @@ ssh ubuntu@192.168.102.2
 
 - Default password: `ubuntu`
 - **Note:** Upon first login, you will be forced to set a new password (minimum 12 characters)
-- Current password: Set to the standard research machine password
+- Current password: Set to the mix of nouns and numbers
 
 ---
 
