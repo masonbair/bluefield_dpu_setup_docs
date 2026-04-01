@@ -35,6 +35,7 @@ sudo sh ./NVIDIA-Linux-x86_64-570.211.01.run --no-peermem --no-dkms --no-nouveau
 ---
 
 ## DOCA and MST Installation on Ubuntu Host
+> **Note:** Thsi guide is for ubuntu 22.04. It may change based on using Ubuntu 24 or Ubuntu 26.
 
 > **Machine:** All host machines (Laka, Hina, and Milu)
 
